@@ -1,0 +1,120 @@
+<DOCTYPE HTML>
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.0.1/ipaddr.min.js"></script>	
+	<style>
+		#input,#resultarea {
+			width: 50em;
+			height: 30em;
+		}
+	</style>
+</head>
+<body>
+<h1>ipサーチ</h1>
+<div id="app">
+	<textarea id="input">inside-in permit tcp 192.168.1.1 10.10.10.0 255.255.255.0 eq 5020
+inside-in permit tcp 192.168.1.2 10.10.10.0 255.255.255.0 eq 5020
+inside-in permit tcp 192.168.1.3 255.255.255.0 10.10.10.0 255.255.255.0 eq 5020
+access-list cached ACL log flows: total 0, denided 0 (deny-flow-max 4096)
+	alert interval 300
+access-list inside-in; 9 elements; name hash: 0x532f06a
+access-list inside-in line 1 extended permit icmp 192.168.208.0 255.255.255.0 host 172.3.3.1 log informational interval 300 (hitcnt=0) 0xcd28675c
+access-list inside-in line2 extended permit tcp host 192.168.1.1. host 172.2.2.1 range ftp-data ftp log informational interval</textarea>
+<br/>
+	<button id="kaiseki" >解析</button><button id="clearButton">全消し</button>
+<br/>
+	<span id="checked">0</span>行解析済み
+<hr>
+<h3>検索</h3>
+	<input type="text" id="search" value="10.10.10.0" />
+	<button id="searchRun" >検索</button>
+<br/>
+	<textarea id="resultarea" disabled></textarea>
+</div>
+
+<script type="text/javascript">
+	var input = document.getElementById("input")
+	var search = document.getElementById("search")
+	var kaiseki = document.getElementById("kaiseki")
+	var search = document.getElementById("search")
+	var searchRun = document.getElementById("searchRun")
+	var checked = document.getElementById("checked")
+	var resultarea = document.getElementById("resultarea")
+
+	var ref = []
+
+	document.getElementById('clearButton').addEventListener('click', ()=>{
+		checked.innerHTML = 0
+		resultarea.innerHTML = ''
+		search.value = ''
+		input.value = ''
+	})
+
+	searchRun.addEventListener('click', ()=>{
+		resultarea.innerHTML = ''
+		var q = null
+		try{
+			q = ipaddr.parse(search.value)
+		}catch(e) {}
+
+		if(!q) {
+			return
+		}
+
+		ref.map(r=>{
+			if(q.match(r.src) || q.match(r.dst)){
+				resultarea.innerHTML += r.line+" : "+r.code+"\r\n"
+			}
+		})
+	})
+
+	kaiseki.addEventListener('click', ()=>{
+		ref = []
+		resultarea.innerHTML = ''
+
+		l = 0;
+		input.value.split('\n').map((line)=>{
+			var i =0;
+			var ips = line.split(' ').filter(a=>a != '').filter(f=>{
+				return f.match(/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$/)
+			})
+
+			l++
+
+			if(ips.length <= 1) {
+				return
+			}
+
+			try {
+				var src = [ipaddr.parse(ips[0]), 31]
+				i++;
+
+				var ln = ipaddr.IPv4.parse(ips[i]).prefixLengthFromSubnetMask()
+				if (ln) {
+					src[1] = ln
+					i++
+				}
+
+				var dst = [ipaddr.parse(ips[i]), 31]
+				if(ips[i+1]){
+					ln = ipaddr.IPv4.parse(ips[i+1]).prefixLengthFromSubnetMask()
+					if (ln) {
+						dst[1] = ln
+					}
+				}
+
+				ref.push({
+					'line': l,
+					'src': src,
+					'dst': dst,
+					'code': line,
+				})
+			}catch(e){
+				console.log(e)
+			}
+		})
+		checked.innerHTML = ref.length
+	})
+
+</script>
+</body>
